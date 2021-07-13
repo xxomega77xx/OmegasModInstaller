@@ -51,8 +51,6 @@ Try
 		exit
 	}
 	write "Updating Omegas Mod Installer..."
-	$modInstallerLocalVersion -eq $modInstallerServerVersion
-	$AuDesktopDirectoryPath -ne $scriptDirectory
 	Invoke-WebRequest -Uri https://github.com/xxomega77xx/OmegasModInstaller/releases/download/v$modInstallerServerVersion/OmegasModsInstaller.exe -OutFile $scriptDirectory\OmegasModsInstaller.exe
 	Write "Updated Successfully"
 }

@@ -87,11 +87,6 @@ function Invoke-StartUp ()
 			$AuDesktopDirectoryPath = "$currentUserDesktopPath\AmongUsModded"
 			write "You are up to date, Your Version : $modInstallerLocalVersion"
 			write "Server version $modInstallServerVersion"
-			#if (($AuDesktopDirectoryPath -eq $scriptDirectory))
-			#{
-			#	Start-Process -FilePath $scriptDirectory\Updater.exe
-			#	exit
-			#}
 		}
 		else
 		{
@@ -171,6 +166,9 @@ function Invoke-StartUp ()
 				Install-ToU
 				Install-Hatpack
 				Start-Process $scriptDirectory\updater.exe
+			}
+			5{
+				exit
 			}
 			default {
 				Read-Host "Please make a selection press enter to try again"
