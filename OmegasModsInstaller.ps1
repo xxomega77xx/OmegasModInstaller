@@ -42,9 +42,9 @@ function Get-GitHubLatestRelease ($url)
 	return $version
 }
 write "Gathering required Information..."
-$GHhatPackVersion = Get-GitHubLatestRelease -url $hatPackURL
-$GHtouVersion = Get-GitHubLatestRelease -url $touURL
-$modInstallServerVersion = Get-GitHubLatestRelease -url $modInstallUrl
+$GlobalGHhatPackVersion = Get-GitHubLatestRelease -url $hatPackURL
+$GlobalGHtouVersion = Get-GitHubLatestRelease -url $touURL
+$Global:modInstallServerVersion = Get-GitHubLatestRelease -url $modInstallUrl
 
 $FullConfigFileValue = @"
 ## Settings file was created by plugin Reactor v1.0.0-rc.1
@@ -72,14 +72,11 @@ function Invoke-StartUp ()
 			exit
 		}
 		Write "Checking for Installer updates..."
-		$updaterPath = Join-Path -Path $scriptDirectory -ChildPath Updater
-		if (Test-Path -Path $updaterPath)
+		$updaterPath = Join-Path -Path $scriptDirectory -ChildPath Updater.exe
+		if (!(Test-Path -Path $updaterPath))
 		{
-			write $updaterPath
-			$items = Get-ChildItem $scriptDirectory
-			write $items
 			write "Updater is missing downloading..."
-			Invoke-WebRequest -Uri https://github.com/xxomega77xx/OmegasModInstaller/releases/download/v$modInstallerServerVersion/Updater.exe -OutFile $scriptDirectory\Updater.exe
+			Invoke-WebRequest -Uri https://github.com/xxomega77xx/OmegasModInstaller/releases/download/v$modInstallServerVersion/Updater.exe -OutFile $scriptDirectory\Updater.exe
 		}
 		if ($modInstallerLocalVersion -eq $modInstallServerVersion)
 		{

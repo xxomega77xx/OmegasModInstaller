@@ -5,6 +5,7 @@ function Get-GitHubLatestRelease ($url)
 	$response = $request.GetResponse()
 	$realTagUrl = $response.ResponseUri.OriginalString
 	$version = $realTagUrl.split('/')[-1].Trim('v')
+	$response.Close()
 	return $version
 }
 function Get-ScriptDirectory
@@ -30,12 +31,12 @@ function Get-ScriptDirectory
 		Split-Path $script:MyInvocation.MyCommand.Path
 	}
 }
-$scriptDirectory = Get-ScriptDirectory
-$modInstallerServerVersionLatest = 'https://github.com/xxomega77xx/OmegasModInstaller/releases/latest'
-$modInstallerLocalVersion = (Get-Item "$scriptDirectory\OmegasModsInstaller.exe" | select -ExpandProperty VersionInfo).ProductVersion
-$modInstallerServerVersion = Get-GitHubLatestRelease -url $modInstallerServerVersionLatest
-$currentUserDesktopPath = "$env:USERPROFILE\Desktop"
-$AuDesktopDirectoryPath = "$currentUserDesktopPath\AmongUsModded"
+$global:scriptDirectory = Get-ScriptDirectory
+$global:modInstallerServerVersionLatest = 'https://github.com/xxomega77xx/OmegasModInstaller/releases/latest'
+$global:modInstallerLocalVersion = (Get-Item "$scriptDirectory\OmegasModsInstaller.exe" | select -ExpandProperty VersionInfo).ProductVersion
+$global:modInstallerServerVersion = Get-GitHubLatestRelease -url $modInstallerServerVersionLatest
+$global:currentUserDesktopPath = "$env:USERPROFILE\Desktop"
+$global:AuDesktopDirectoryPath = "$currentUserDesktopPath\AmongUsModded"
 
 Try
 {
