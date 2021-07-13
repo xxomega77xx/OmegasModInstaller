@@ -76,7 +76,7 @@ function Invoke-StartUp ()
 		{
 			write "Updating Your Current Version to : $modInstallServerVersion"
 			write "Your version $modInstallerLocalVersion"
-			Start-Process $scriptDirectory\Updater.exe
+			Start-Process $scriptDirectory\Updater.exe -Wait
 		}
 		write "Checking for correct exe location..."
 		if ((Test-Path -Path $pluginsPath) -and (Test-Path -Path "$scriptDirectory\Among Us.exe"))
