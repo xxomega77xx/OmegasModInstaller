@@ -21,22 +21,27 @@
 		Split-Path $script:MyInvocation.MyCommand.Path
 	}
 }
-$scriptDirectory = Get-ScriptDirectory
-$cfgPath = "$scriptDirectory\BepInEx\config\gg.reactor.api.cfg"
-$pluginsPath = "$scriptDirectory\BepInEx\plugins"
-$hatPackURL = 'https://github.com/xxomega77xx/HatPack/releases/latest'
-$modInstallUrl = 'https://github.com/xxomega77xx/OmegasModInstaller/releases/latest'
-$touURL = 'https://github.com/polusgg/Town-Of-Us/releases/latest'
-$AuRegKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 945360"
-$modInstallerLocalVersion = (Get-Item "$scriptDirectory\OmegasModsInstaller.exe" | select -ExpandProperty VersionInfo).ProductVersion
+$global:scriptDirectory = Get-ScriptDirectory
+$global:cfgPath = "$scriptDirectory\BepInEx\config\gg.reactor.api.cfg"
+$global:pluginsPath = "$scriptDirectory\BepInEx\plugins"
+$global:hatPackURL = 'https://github.com/xxomega77xx/HatPack/releases/latest'
+$global:modInstallUrl = 'https://github.com/xxomega77xx/OmegasModInstaller/releases/latest'
+$global:touURL = 'https://github.com/polusgg/Town-Of-Us/releases/latest'
+$global:AuRegKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 945360"
+$global:currentUserDesktopPath = "$env:USERPROFILE\Desktop"
+$global:GloAuDesktopDirectoryPath = "$currentUserDesktopPath\AmongUsModded"
+$global:modInstallerLocalVersion = (Get-Item "$scriptDirectory\OmegasModsInstaller.exe" | select -ExpandProperty VersionInfo).ProductVersion
+$global:brandnewInstall = $false
 function Get-GitHubLatestRelease ($url)
 {
 	$request = [System.Net.WebRequest]::Create($url)
 	$response = $request.GetResponse()
 	$realTagUrl = $response.ResponseUri.OriginalString
 	$version = $realTagUrl.split('/')[-1].Trim('v')
+	$response.Close()
 	return $version
 }
+write "Gathering required Information..."
 $GHhatPackVersion = Get-GitHubLatestRelease -url $hatPackURL
 $GHtouVersion = Get-GitHubLatestRelease -url $touURL
 $modInstallServerVersion = Get-GitHubLatestRelease -url $modInstallUrl
@@ -67,10 +72,26 @@ function Invoke-StartUp ()
 			exit
 		}
 		Write "Checking for Installer updates..."
+		$updaterPath = Join-Path -Path $scriptDirectory -ChildPath Updater
+		if (Test-Path -Path $updaterPath)
+		{
+			write $updaterPath
+			$items = Get-ChildItem $scriptDirectory
+			write $items
+			write "Updater is missing downloading..."
+			Invoke-WebRequest -Uri https://github.com/xxomega77xx/OmegasModInstaller/releases/download/v$modInstallerServerVersion/Updater.exe -OutFile $scriptDirectory\Updater.exe
+		}
 		if ($modInstallerLocalVersion -eq $modInstallServerVersion)
 		{
+			$currentUserDesktopPath = "$env:USERPROFILE\Desktop"
+			$AuDesktopDirectoryPath = "$currentUserDesktopPath\AmongUsModded"
 			write "You are up to date, Your Version : $modInstallerLocalVersion"
 			write "Server version $modInstallServerVersion"
+			#if (($AuDesktopDirectoryPath -eq $scriptDirectory))
+			#{
+			#	Start-Process -FilePath $scriptDirectory\Updater.exe
+			#	exit
+			#}
 		}
 		else
 		{
@@ -88,23 +109,27 @@ function Invoke-StartUp ()
 			}
 		}
 		else
-		{
-			write "Checking if fresh modded install folder"
-			if (!(Get-Item -Path "$scriptDirectory\Among Us.exe").DirectoryName.Contains("Steam"))
+		{			
+			if (Test-Path -Path "$scriptDirectory\Among Us.exe")
 			{
-				write "We are fresh moving on..."
-				if (!(Test-Path -Path $scriptDirectory\Temp))
+				write "Checking if fresh modded install folder"
+				if (!(Get-Item -Path "$scriptDirectory\Among Us.exe" -ErrorAction Ignore).DirectoryName.Contains("Steam"))
 				{
-					$null = New-Item -Path $scriptDirectory\Temp -ItemType Directory
+					write "We are fresh moving on..."
+					if (!(Test-Path -Path $scriptDirectory\Temp))
+					{
+						$null = New-Item -Path $scriptDirectory\Temp -ItemType Directory
+					}
+				}
+				else
+				{
+					write "  EXE needs to be in the Modded folder place it there and re-run the script"
+					write "  Your current directory is $scriptDirectory"
+					Read-Host "Press enter to continue"
+					exit
 				}
 			}
-			else
-			{
-				write "  EXE needs to be in the Modded folder place it there and re-run the script"
-				write "  Your current directory is $scriptDirectory"
-				Read-Host "Press enter to continue"
-				exit
-			}
+			
 			
 		}
 		write "Checking to make sure Among us isn't running..."
@@ -141,9 +166,11 @@ function Invoke-StartUp ()
 				Install-Hatpack
 			}
 			4 {
+				$brandnewInstall = $true
 				Create-ModdedFoldersandFiles
 				Install-ToU
 				Install-Hatpack
+				Start-Process $scriptDirectory\updater.exe
 			}
 			default {
 				Read-Host "Please make a selection press enter to try again"
@@ -165,38 +192,97 @@ function Create-ModdedFoldersandFiles ()
 	$currentUserDesktopPath = "$env:USERPROFILE\Desktop"
 	$AuDesktopDirectoryPath = "$currentUserDesktopPath\AmongUsModded"
 	$null = New-Item -Path $AuDesktopDirectoryPath -ItemType Directory
-	Copy-Item -Path $installLocation -Destination $AuDesktopDirectoryPath
+	Copy-Item -Path $installLocation\* -Destination $AuDesktopDirectoryPath -Recurse
+	if (!(Test-Path -Path $AuDesktopDirectoryPath\Temp))
+	{
+		$null = New-Item -Path $AuDesktopDirectoryPath\Temp -ItemType Directory
+	}
 }
 function Install-Hatpack ()
 {
-	if (Test-Path -Path $pluginsPath)
+	if ($brandnewInstall)
 	{
-		write "Checking config file..."
-		try
+		$scriptDirectory = $AuDesktopDirectoryPath
+		$pluginsPath = "$scriptDirectory\BepInEx\Plugins"
+		$cfgPath = "$scriptDirectory\BepInEx\config\gg.reactor.api.cfg"
+		if (Test-Path -Path $pluginsPath)
 		{
-			
-			if (Test-Path -Path $cfgPath)
+			write "Checking config file..."
+			try
 			{
-				$cfg = get-content -Path $cfgPath
-				$cfgValue = $cfg | Select-String -Pattern "Allow vanilla"
-				if ($cfgValue.ToString() -eq "Allow vanilla servers = false")
+				
+				if (Test-Path -Path $cfgPath)
 				{
-					Write "  Setting Config"
-					$cfg -replace "Allow vanilla servers = false", "Allow vanilla servers = true" | Set-Content -Path $cfgPath
-					write "Config set"
+					$cfg = get-content -Path $cfgPath
+					$cfgValue = $cfg | Select-String -Pattern "Allow vanilla"
+					if ($cfgValue.ToString() -eq "Allow vanilla servers = false")
+					{
+						Write "  Setting Config"
+						$cfg -replace "Allow vanilla servers = false", "Allow vanilla servers = true" | Set-Content -Path $cfgPath
+						write "Config set"
+					}
+					else
+					{
+						Write "Config is properly set"
+					}
 				}
 				else
 				{
-					Write "Config is properly set"
+					Write "Config file does not exist creating config file..."
+					try
+					{
+						New-Item -Path "$scriptDirectory\BepInEx\config" -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
+						New-Item -Path $cfgPath -Value $FullConfigFileValue | Out-Null
+						write "Config file created successfully."
+					}
+					catch
+					{
+						write "An Error Occurred : $($psitem.exception.message)"
+					}
+					
+				}
+			}
+			catch
+			{
+				write "Error Occurred : $($psitem.exception.message)"
+			}
+			if (Test-Path -Path $pluginsPath\hatpack.dll)
+			{
+				
+				$hatPackVersion = (Get-Item $pluginsPath\HatPack.dll | select -ExpandProperty VersionInfo).ProductVersion
+				Write "Checking version of hatpack..."
+				write "Server version is $GHhatPackVersion"
+				if ($GHhatPackVersion -eq $hatPackVersion)
+				{
+					Write "Hatpack is up to date current installed version = $hatPackVersion"
+				}
+				else
+				{
+					Remove-Item -Path $pluginsPath\hatpack.dll -Force
+					Write "Updating Hatpack..."
+					Invoke-WebRequest -Uri https://github.com/xxomega77xx/HatPack/releases/download/v$GHhatPackVersion/HatPack.dll -OutFile $pluginsPath\Hatpack.dll
+					write "Hatpack updated"
 				}
 			}
 			else
 			{
-				Write "Config file does not exist creating config file..."
+				write "Server version is $GHhatPackVersion"
+				write "Installing Hatpack..."
 				try
 				{
-					New-Item -Path $cfgPath -Value $FullConfigFileValue | Out-Null
-					write "Config file created successfully."
+					Invoke-WebRequest -Uri https://github.com/xxomega77xx/HatPack/releases/download/v$GHhatPackVersion/HatPack.dll -OutFile $pluginsPath\Hatpack.dll
+					write "HatPack Installed"
+				}
+				catch
+				{
+					write "An Error Occurred : $($psitem.exception.message)"
+				}
+				
+				write "Installing Reactor..."
+				try
+				{
+					Invoke-WebRequest -Uri https://github.com/xxomega77xx/HatPack/releases/download/v$GHhatPackVersion/Reactor.dll -OutFile $pluginsPath\Reactor.dll
+					write "Reactor Installed"
 				}
 				catch
 				{
@@ -205,112 +291,214 @@ function Install-Hatpack ()
 				
 			}
 		}
-		catch
-		{
-			write "Error Occurred : $($psitem.exception.message)"
-		}
-		if (Test-Path -Path $pluginsPath\hatpack.dll)
-		{
-			
-			$hatPackVersion = (Get-Item $pluginsPath\HatPack.dll | select -ExpandProperty VersionInfo).ProductVersion
-			Write "Checking version of hatpack..."
-			write "Server version is $GHhatPackVersion"
-			if ($GHhatPackVersion -eq $hatPackVersion)
-			{
-				Write "Hatpack is up to date current installed version = $hatPackVersion"
-			}
-			else
-			{
-				Remove-Item -Path $pluginsPath\hatpack.dll -Force
-				Write "Updating Hatpack..."
-				Invoke-WebRequest -Uri https://github.com/xxomega77xx/HatPack/releases/download/v$GHhatPackVersion/HatPack.dll -OutFile $pluginsPath\Hatpack.dll
-				write "Hatpack updated"
-			}
-		}
 		else
 		{
-			write "Server version is $GHhatPackVersion"
-			write "Installing Hatpack..."
-			try
-			{
-				Invoke-WebRequest -Uri https://github.com/xxomega77xx/HatPack/releases/download/v$GHhatPackVersion/HatPack.dll -OutFile $pluginsPath\Hatpack.dll
-				write "HatPack Installed"
-			}
-			catch
-			{
-				write "An Error Occurred : $($psitem.exception.message)"
-			}
-			
-			write "Installing Reactor..."
-			try
-			{
-				Invoke-WebRequest -Uri https://github.com/xxomega77xx/HatPack/releases/download/v$GHhatPackVersion/Reactor.dll -OutFile $pluginsPath\Reactor.dll
-				write "Reactor Installed"
-			}
-			catch
-			{
-				write "An Error Occurred : $($psitem.exception.message)"
-			}
+			$bepInExZip = (Invoke-RestMethod -Uri "https://api.github.com/repos/xxomega77xx/HatPack/releases").assets.browser_download_url[0]
+			write "No other mods Installed downloading required files..."
+			Invoke-WebRequest -Uri $bepInExZip -OutFile $scriptDirectory\Temp\BepInEx.zip
+			Expand-Archive -Path $scriptDirectory\Temp\BepInEx.zip -DestinationPath $scriptDirectory\Temp -Force
+			$null = Move-Item -Path $scriptDirectory\Temp\* -Exclude *.zip -Destination $scriptDirectory
+			Install-Hatpack
 			
 		}
 	}
 	else
 	{
-		$bepInExZip = (Invoke-RestMethod -Uri "https://api.github.com/repos/xxomega77xx/HatPack/releases").assets.browser_download_url[0]
-		write "No other mods Installed downloading required files..."
-		Invoke-WebRequest -Uri $bepInExZip -OutFile $scriptDirectory\Temp\BepInEx.zip
-		Expand-Archive -Path $scriptDirectory\Temp\BepInEx.zip -DestinationPath $scriptDirectory\Temp -Force
-		$null = Move-Item -Path $scriptDirectory\Temp\* -Exclude *.zip -Destination $scriptDirectory
-		Install-Hatpack
-		
+		if (Test-Path -Path $pluginsPath)
+		{
+			write "Checking config file..."
+			try
+			{
+				
+				if (Test-Path -Path $cfgPath)
+				{
+					$cfg = get-content -Path $cfgPath
+					$cfgValue = $cfg | Select-String -Pattern "Allow vanilla"
+					if ($cfgValue.ToString() -eq "Allow vanilla servers = false")
+					{
+						Write "  Setting Config"
+						$cfg -replace "Allow vanilla servers = false", "Allow vanilla servers = true" | Set-Content -Path $cfgPath
+						write "Config set"
+					}
+					else
+					{
+						Write "Config is properly set"
+					}
+				}
+				else
+				{
+					Write "Config file does not exist creating config file..."
+					try
+					{
+						New-Item -Path $cfgPath -Value $FullConfigFileValue | Out-Null
+						write "Config file created successfully."
+					}
+					catch
+					{
+						write "An Error Occurred : $($psitem.exception.message)"
+					}
+					
+				}
+			}
+			catch
+			{
+				write "Error Occurred : $($psitem.exception.message)"
+			}
+			if (Test-Path -Path $pluginsPath\hatpack.dll)
+			{
+				
+				$hatPackVersion = (Get-Item $pluginsPath\HatPack.dll | select -ExpandProperty VersionInfo).ProductVersion
+				Write "Checking version of hatpack..."
+				write "Server version is $GHhatPackVersion"
+				if ($GHhatPackVersion -eq $hatPackVersion)
+				{
+					Write "Hatpack is up to date current installed version = $hatPackVersion"
+				}
+				else
+				{
+					Remove-Item -Path $pluginsPath\hatpack.dll -Force
+					Write "Updating Hatpack..."
+					Invoke-WebRequest -Uri https://github.com/xxomega77xx/HatPack/releases/download/v$GHhatPackVersion/HatPack.dll -OutFile $pluginsPath\Hatpack.dll
+					write "Hatpack updated"
+				}
+			}
+			else
+			{
+				write "Server version is $GHhatPackVersion"
+				write "Installing Hatpack..."
+				try
+				{
+					Invoke-WebRequest -Uri https://github.com/xxomega77xx/HatPack/releases/download/v$GHhatPackVersion/HatPack.dll -OutFile $pluginsPath\Hatpack.dll
+					write "HatPack Installed"
+				}
+				catch
+				{
+					write "An Error Occurred : $($psitem.exception.message)"
+				}
+				
+				write "Installing Reactor..."
+				try
+				{
+					Invoke-WebRequest -Uri https://github.com/xxomega77xx/HatPack/releases/download/v$GHhatPackVersion/Reactor.dll -OutFile $pluginsPath\Reactor.dll
+					write "Reactor Installed"
+				}
+				catch
+				{
+					write "An Error Occurred : $($psitem.exception.message)"
+				}
+				
+			}
+		}
+		else
+		{
+			$bepInExZip = (Invoke-RestMethod -Uri "https://api.github.com/repos/xxomega77xx/HatPack/releases").assets.browser_download_url[0]
+			write "No other mods Installed downloading required files..."
+			Invoke-WebRequest -Uri $bepInExZip -OutFile $scriptDirectory\Temp\BepInEx.zip
+			Expand-Archive -Path $scriptDirectory\Temp\BepInEx.zip -DestinationPath $scriptDirectory\Temp -Force
+			$null = Move-Item -Path $scriptDirectory\Temp\* -Exclude *.zip -Destination $scriptDirectory
+			Install-Hatpack
+			
+		}
 	}
 	
 }
 function Install-ToU ()
 {
-	$latestTouReleaseURL = (Invoke-RestMethod -Uri "https://api.github.com/repos/polusgg/Town-Of-Us/releases").assets.browser_download_url[0]
-	if (Test-Path -Path $pluginsPath\TownOfUs.dll)
+	if ($brandnewInstall)
 	{
-		
-		$touVersion = (Get-Item $pluginsPath\TownOfUs.dll | select -ExpandProperty VersionInfo).ProductVersion
-		if ($GHtouVersion -eq $touVersion)
+		$scriptDirectory = $AuDesktopDirectoryPath
+		$pluginsPath = "$scriptDirectory\BepInEx\Plugins"
+		$latestTouReleaseURL = (Invoke-RestMethod -Uri "https://api.github.com/repos/polusgg/Town-Of-Us/releases").assets.browser_download_url[0]
+		if (Test-Path -Path $pluginsPath\TownOfUs.dll)
 		{
-			write "Town of Us is up to date Current version = $touVersion"
+			
+			$touVersion = (Get-Item $pluginsPath\TownOfUs.dll | select -ExpandProperty VersionInfo).ProductVersion
+			if ($GHtouVersion -eq $touVersion)
+			{
+				write "Town of Us is up to date Current version = $touVersion"
+			}
+			else
+			{
+				write "Updating Town of Us to $GHtouVersion"
+				if (Test-Path -Path $pluginsPath\TownOfUs.dll)
+				{
+					Remove-Item -Path $pluginsPath\TownOfUs.dll -Force
+				}
+				Invoke-WebRequest -Uri $latestTouReleaseURL -OutFile $scriptDirectory\Temp\TownOfUs$GHtouVersion.zip
+				Expand-Archive -Path $scriptDirectory\Temp\TownOfUs$GHtouVersion.zip -DestinationPath $scriptDirectory\Temp -Force
+				$null = Move-Item -Path $scriptDirectory\Temp\BepInEx\plugins\TownofUs.dll -Destination $pluginsPath
+			}
 		}
 		else
 		{
-			write "Updating Town of Us to $GHtouVersion"
-			if (Test-Path -Path $pluginsPath\TownOfUs.dll)
-			{				
-				Remove-Item -Path $pluginsPath\TownOfUs.dll -Force
+			try
+			{
+				write "Downloading TOU version $GHtouVersion"
+				Invoke-WebRequest -Uri $latestTouReleaseURL -OutFile $scriptDirectory\Temp\TownOfUs$GHtouVersion.zip
+				Expand-Archive -Path $scriptDirectory\Temp\TownOfUs$GHtouVersion.zip -DestinationPath $scriptDirectory\Temp -Force
+				if (Test-Path $pluginsPath)
+				{
+					Move-Item -Path $scriptDirectory\Temp\BepInEx\plugins\TownOfUs.dll -Destination $pluginsPath
+				}
+				else
+				{
+					Move-Item -Path $scriptDirectory\Temp\* -Destination $scriptDirectory -Exclude "TownOfUs$($GHtouVersion).zip" -ErrorAction SilentlyContinue
+				}
+				
 			}
-			Invoke-WebRequest -Uri $latestTouReleaseURL -OutFile $scriptDirectory\Temp\TownOfUs$GHtouVersion.zip
-			Expand-Archive -Path $scriptDirectory\Temp\TownOfUs$GHtouVersion.zip -DestinationPath $scriptDirectory\Temp -Force
-			$null = Move-Item -Path $scriptDirectory\Temp\BepInEx\plugins\TownofUs.dll -Destination $pluginsPath
+			catch
+			{
+				write "An Error Occurred $($psitem.exception.message)"
+			}
 		}
 	}
 	else
 	{
-		try
-		{			
-			write "Downloading TOU version $GHtouVersion"
-			Invoke-WebRequest -Uri $latestTouReleaseURL -OutFile $scriptDirectory\Temp\TownOfUs$GHtouVersion.zip
-			Expand-Archive -Path $scriptDirectory\Temp\TownOfUs$GHtouVersion.zip -DestinationPath $scriptDirectory\Temp -Force
-			if (Test-Path $pluginsPath)
+		$latestTouReleaseURL = (Invoke-RestMethod -Uri "https://api.github.com/repos/polusgg/Town-Of-Us/releases").assets.browser_download_url[0]
+		if (Test-Path -Path $pluginsPath\TownOfUs.dll)
+		{
+			
+			$touVersion = (Get-Item $pluginsPath\TownOfUs.dll | select -ExpandProperty VersionInfo).ProductVersion
+			if ($GHtouVersion -eq $touVersion)
 			{
-				Move-Item -Path $scriptDirectory\Temp\BepInEx\plugins\TownOfUs.dll -Destination $pluginsPath
+				write "Town of Us is up to date Current version = $touVersion"
 			}
 			else
 			{
-				Move-Item -Path $scriptDirectory\Temp\* -Destination $scriptDirectory -Exclude "*.zip" -Force
+				write "Updating Town of Us to $GHtouVersion"
+				if (Test-Path -Path $pluginsPath\TownOfUs.dll)
+				{
+					Remove-Item -Path $pluginsPath\TownOfUs.dll -Force
+				}
+				Invoke-WebRequest -Uri $latestTouReleaseURL -OutFile $scriptDirectory\Temp\TownOfUs$GHtouVersion.zip
+				Expand-Archive -Path $scriptDirectory\Temp\TownOfUs$GHtouVersion.zip -DestinationPath $scriptDirectory\Temp -Force
+				$null = Move-Item -Path $scriptDirectory\Temp\BepInEx\plugins\TownofUs.dll -Destination $pluginsPath
 			}
-			
 		}
-		catch
+		else
 		{
-			write "An Error Occurred $($psitem.exception.message)"
+			try
+			{
+				write "Downloading TOU version $GHtouVersion"
+				Invoke-WebRequest -Uri $latestTouReleaseURL -OutFile $scriptDirectory\Temp\TownOfUs$GHtouVersion.zip
+				Expand-Archive -Path $scriptDirectory\Temp\TownOfUs$GHtouVersion.zip -DestinationPath $scriptDirectory\Temp -Force
+				if (Test-Path $pluginsPath)
+				{
+					Move-Item -Path $scriptDirectory\Temp\BepInEx\plugins\TownOfUs.dll -Destination $pluginsPath
+				}
+				else
+				{
+					Move-Item -Path $scriptDirectory\Temp\* -Destination $scriptDirectory -Exclude "TownOfUs$($GHtouVersion).zip" -ErrorAction SilentlyContinue
+				}
+				
+			}
+			catch
+			{
+				write "An Error Occurred $($psitem.exception.message)"
+			}
 		}
 	}
+	
 }
 Invoke-StartUp
 

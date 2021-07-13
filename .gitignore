@@ -1,3 +1,9 @@
 bin/x64/OmegasModsInstaller.exe
 bin/x64/OmegasModsInstaller.exe.config
 OmegasModsInstaller.ps1.psbuild
+OmegasModsInstaller.ps1
+Updater.ps1.psbuild
+OmegasModsInstaller.TempPoint.ps1
+Updater.TempPoint.ps1
+bin/x64/Updater.exe.config
+bin/x64/Updater.exe
