@@ -37,11 +37,11 @@ $global:modInstallerLocalVersion = (Get-Item "$scriptDirectory\OmegasModsInstall
 $global:modInstallerServerVersion = Get-GitHubLatestRelease -url $modInstallerServerVersionLatest
 $global:currentUserDesktopPath = "$env:USERPROFILE\Desktop"
 $global:AuDesktopDirectoryPath = "$currentUserDesktopPath\AmongUsModded"
-
+write "Stoping Mod Installer process for tasks..."
+Stop-Process -Name OmegasModsInstaller -Force -ErrorAction SilentlyContinue
 Try
 {
-	write "Stoping Mod Installer process for tasks..."
-	Stop-Process -Name OmegasModsInstaller -Force -ErrorAction Ignore
+	
 	if (($modInstallerLocalVersion -eq $modInstallerServerVersion) -and ($AuDesktopDirectoryPath -ne $scriptDirectory))
 	{
 		write "Copying Mod Installer to new modded folder"
@@ -51,7 +51,7 @@ Try
 		Start-Process $AuDesktopDirectoryPath\OmegasModsInstaller.exe
 		exit
 	}
-	write "Updating Omegas Mod Installer..."
+	write "Updating Omegas Mod Installer to version $modInstallerServerVersion..."
 	Invoke-WebRequest -Uri https://github.com/xxomega77xx/OmegasModInstaller/releases/download/v$modInstallerServerVersion/OmegasModsInstaller.exe -OutFile $scriptDirectory\OmegasModsInstaller.exe
 	Write "Updated Successfully"
 }

@@ -42,8 +42,8 @@ function Get-GitHubLatestRelease ($url)
 	return $version
 }
 write "Gathering required Information..."
-$GlobalGHhatPackVersion = Get-GitHubLatestRelease -url $hatPackURL
-$GlobalGHtouVersion = Get-GitHubLatestRelease -url $touURL
+$Global:GHhatPackVersion = Get-GitHubLatestRelease -url $hatPackURL
+$Global:GHtouVersion = Get-GitHubLatestRelease -url $touURL
 $Global:modInstallServerVersion = Get-GitHubLatestRelease -url $modInstallUrl
 
 $FullConfigFileValue = @"
